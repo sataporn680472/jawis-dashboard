@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAWIS Dashboard — Grab O&M Solar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary:#F97316; --primary-light:#FFF7ED;
+    --green:#16A34A;   --green-light:#DCFCE7;
+    --red:#DC2626;     --red-light:#FEE2E2;
+    --yellow:#D97706;  --yellow-light:#FEF3C7;
+    --blue:#2563EB;    --blue-light:#DBEAFE;
+    --purple:#7C3AED;  --purple-light:#EDE9FE;
+    --gray:#6B7280;    --gray-light:#F9FAFB;
+    --border:#E5E7EB;  --text:#111827;
+    --shadow:0 1px 3px rgba(0,0,0,.1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#F3F4F6;color:var(--text);font-size:14px}
+
+  /* ── LOGIN ── */
+  .login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);display:flex;align-items:center;justify-content:center;z-index:1000}
+  .login-box{background:white;border-radius:20px;padding:40px 36px;width:380px;text-align:center;box-shadow:0 25px 80px rgba(0,0,0,.4)}
+  .login-logo{font-size:52px;margin-bottom:12px}
+  .login-title{font-size:24px;font-weight:800;color:var(--primary);margin-bottom:4px}
+  .login-sub{font-size:13px;color:var(--gray);margin-bottom:28px}
+  .login-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:10px;font-size:15px;text-align:center;font-family:inherit;outline:none}
+  .login-input:focus{border-color:var(--primary)}
+  .login-input+.login-input{margin-top:8px;letter-spacing:normal}
+  .login-btn{width:100%;background:var(--primary);color:white;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px}
+  .login-btn:hover{background:#EA6C0A}
+  .login-admin-btn{background:none;border:1px solid var(--border);padding:10px 20px;border-radius:8px;color:var(--gray);font-size:12px;cursor:pointer;margin-top:16px;font-family:inherit}
+  .login-admin-btn:hover{background:var(--gray-light)}
+  .login-error{color:var(--red);font-size:12px;margin-top:8px;display:none}
+  .login-hint{color:var(--gray);font-size:11px;margin-top:6px}
+  .login-divider{border-top:1px solid var(--border);margin:20px 0 0;padding-top:16px}
+
+  /* ── HEADER ── */
+  .header{background:white;border-bottom:3px solid var(--primary);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+  .header-left{display:flex;align-items:center;gap:10px}
+  .logo{font-size:22px;font-weight:800;color:var(--primary)}
+  .logo span{color:var(--text)}
+  .badge{background:var(--primary);color:white;font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600}
+  .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .date-label{color:var(--gray);font-size:12px}
+  .user-badge{background:var(--primary-light);color:var(--primary);font-size:12px;padding:4px 10px;border-radius:99px;font-weight:600}
+  .refresh-btn{background:var(--primary);color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+  .refresh-btn:hover{background:#EA6C0A}
+  .logout-btn{background:none;border:1px solid var(--border);color:var(--gray);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit}
+  .logout-btn:hover{background:var(--gray-light)}
+
+  /* ── TABS ── */
+  .tabs{display:flex;background:white;border-bottom:1px solid var(--border);padding:0 20px}
+  .tab{padding:14px 20px;cursor:pointer;font-weight:600;font-size:13px;color:var(--gray);border-bottom:3px solid transparent;transition:all .2s}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+  .tab:hover{color:var(--primary)}
+
+  /* ── LAYOUT ── */
+  .content{padding:20px;max-width:1200px;margin:0 auto}
+  .view{display:none}
+  .view.active{display:block}
+  .cards-row{display:grid;gap:12px;margin-bottom:20px}
+  .cards-row-4{grid-template-columns:repeat(4,1fr)}
+  .cards-row-3{grid-template-columns:repeat(3,1fr)}
+  .cards-row-2{grid-template-columns:repeat(2,1fr)}
+  .card{background:white;border-radius:10px;padding:16px;box-shadow:var(--shadow);border:1px solid var(--border)}
+  .card-label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .card-value{font-size:26px;font-weight:800}
+  .card-sub{font-size:11px;color:var(--gray);margin-top:4px}
+  .card-green .card-value{color:var(--green)}
+  .card-orange .card-value{color:var(--primary)}
+  .card-blue .card-value{color:var(--blue)}
+  .card-yellow .card-value{color:var(--yellow)}
+
+  /* ── SEARCH / LOCK ── */
+  .search-bar{display:flex;gap:10px;margin-bottom:20px;background:white;padding:14px 16px;border-radius:10px;box-shadow:var(--shadow);border:1px solid var(--border)}
+  .search-bar input,.search-bar select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;font-family:inherit}
+  .search-bar input{flex:1}
+  .search-bar input:focus{border-color:var(--primary)}
+  .search-btn{background:var(--primary);color:white;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px}
+  .tech-lock-info{display:flex;align-items:center;gap:10px;background:var(--primary-light);border:1px solid #FED7AA;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--primary)}
+
+  /* ── FILTER BAR ── */
+  .filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:white;padding:12px 16px;border-radius:10px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:16px}
+  .filter-bar label{font-size:12px;color:var(--gray);font-weight:600;white-space:nowrap}
+  .filter-bar input[type="date"]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none}
+  .filter-bar input[type="date"]:focus{border-color:var(--primary)}
+  .filter-quick{padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:white;font-family:inherit;color:var(--gray)}
+  .filter-quick:hover{background:var(--primary);color:white;border-color:var(--primary)}
+
+  /* ── EXPORT ── */
+  .export-bar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:16px}
+  .export-btn{padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+  .export-csv{background:var(--green-light);color:var(--green)}
+  .export-csv:hover{background:#BBF7D0}
+  .export-pdf{background:var(--blue-light);color:var(--blue)}
+  .export-pdf:hover{background:#BFDBFE}
+
+  /* ── TABLE ── */
+  .section-title{font-weight:700;font-size:14px;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:var(--gray-light);padding:10px 12px;text-align:left;font-weight:700;color:var(--gray);border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr.clickable{cursor:pointer}
+  tr.clickable:hover td{background:#FFF7ED!important}
+
+  /* ── JV BADGES ── */
+  .jv-full{background:var(--green-light);color:var(--green);padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700}
+  .jv-min{background:var(--yellow-light);color:var(--yellow);padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700}
+  .jv-breakdown{background:var(--purple-light);color:var(--purple);padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700}
+  .jv-pending{background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+  .flag-slow{background:var(--yellow-light);color:var(--yellow);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px}
+  .flag-urgent{background:var(--red-light);color:var(--red);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px}
+  .badge-teammate{background:var(--blue-light);color:var(--blue);font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px}
+
+  /* ── PERSONAL ── */
+  .personal-header{background:linear-gradient(135deg,var(--primary),#F97316CC);color:white;border-radius:10px;padding:20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+  .personal-name{font-size:20px;font-weight:800}
+  .personal-id{font-size:12px;opacity:.85;margin-top:2px}
+  .personal-grab{text-align:right}
+  .personal-grab-label{font-size:11px;opacity:.85}
+  .personal-grab-value{font-size:32px;font-weight:900}
+  .progress-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+  .progress-bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--primary);border-radius:99px;transition:width .5s}
+
+  /* ── CHART ── */
+  .chart-wrap{background:white;border-radius:10px;padding:16px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:20px}
+  .chart-container{position:relative;height:220px}
+
+  /* ── AI SUMMARY ── */
+  .ai-box{background:linear-gradient(135deg,#EFF6FF,#F0FDF4);border:1px solid #BFDBFE;border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px}
+  .ai-box-title{font-weight:700;color:var(--blue);font-size:12px;margin-bottom:6px}
+  .ai-text{color:var(--text);line-height:1.6}
+  .ai-summary-cell{font-size:11px;color:var(--gray);line-height:1.4;max-width:280px}
+
+  /* ── PHOTO LINK ── */
+  .photo-link{color:var(--blue);font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+  .photo-link:hover{text-decoration:underline}
+
+  /* ── BACKLOG / ANOMALY ── */
+  .backlog-item{border-left:3px solid var(--yellow);background:var(--yellow-light);padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:8px;font-size:13px}
+  .backlog-item.urgent{border-color:var(--red);background:var(--red-light)}
+  .backlog-meta{font-size:11px;color:var(--gray);margin-top:3px}
+  .anomaly-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .anomaly-icon{font-size:18px}
+  .anomaly-text{flex:1}
+  .anomaly-name{font-weight:600;font-size:13px}
+  .anomaly-reason{font-size:12px;color:var(--gray);margin-top:2px}
+
+  /* ── RANKING ── */
+  .rank-num{font-weight:800;color:var(--gray);font-size:16px}
+  .rank-1{color:#F59E0B} .rank-2{color:#9CA3AF} .rank-3{color:#CD7C38}
+
+  /* ── MISC ── */
+  .empty-state{text-align:center;padding:40px;color:var(--gray)}
+  .empty-icon{font-size:40px;margin-bottom:10px}
+  .connect-notice{background:var(--blue-light);border:1px solid #93C5FD;border-radius:8px;padding:12px 16px;font-size:12px;color:#1D4ED8;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+  .pending-notice{background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:12px}
+
+  /* ── DATE NAVIGATOR (Tech View) ── */
+  .date-nav{display:flex;align-items:center;gap:8px;background:white;padding:12px 16px;border-radius:10px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:16px}
+  .date-nav-btn{background:white;border:1px solid var(--border);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;color:var(--gray)}
+  .date-nav-btn:hover{background:var(--primary);color:white;border-color:var(--primary)}
+  .date-nav-btn.today{background:var(--primary-light);color:var(--primary);border-color:#FED7AA;font-weight:600}
+  .date-nav-label{flex:1;text-align:center;font-size:15px;font-weight:700;color:var(--text)}
+  .date-nav input[type="date"]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;outline:none;cursor:pointer}
+  .date-nav input[type="date"]:focus{border-color:var(--primary)}
+
+  /* ── DAILY HISTORY TABLE ── */
+  .history-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:background .15s}
+  .history-row:hover{background:var(--primary-light)}
+  .history-row.selected{background:var(--primary-light);border:1px solid #FED7AA}
+  .history-date{font-size:13px;font-weight:600;min-width:110px}
+  .history-tasks{font-size:12px;color:var(--gray);flex:1}
+  .history-grab{font-size:14px;font-weight:700;color:var(--green)}
+  .history-pending{font-size:11px;color:var(--yellow);margin-left:6px}
+
+  /* ── TASK DETAIL MODAL ── */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center;padding:16px}
+  .modal-overlay.open{display:flex}
+  .modal-box{background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.4)}
+  .modal-header{padding:20px 24px 12px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border)}
+  .modal-title{font-size:16px;font-weight:800;color:var(--text);line-height:1.4}
+  .modal-subtitle{font-size:12px;color:var(--gray);margin-top:3px}
+  .modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);padding:0 4px;line-height:1;margin-left:12px;flex-shrink:0}
+  .modal-close:hover{color:var(--red)}
+  .modal-body{padding:20px 24px 24px}
+  .modal-section{margin-bottom:18px}
+  .modal-section-title{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  .detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .detail-item{background:var(--gray-light);border-radius:8px;padding:10px 12px}
+  .detail-item-label{font-size:10px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+  .detail-item-value{font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
+
+  /* ── PHOTO GALLERY ── */
+  .photo-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:8px}
+  .photo-thumb{border-radius:8px;overflow:hidden;border:2px solid var(--border);cursor:pointer;background:#1a1a2e;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;position:relative}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;transition:.2s}
+  .photo-thumb:hover img{opacity:.85;transform:scale(1.03)}
+  .photo-thumb .photo-err{display:none;flex-direction:column;align-items:center;gap:4px;color:#888;font-size:11px}
+  .photo-thumb.err .photo-err{display:flex}
+  .photo-thumb.err img{display:none}
+  .photo-counter{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:white;font-size:10px;padding:2px 7px;border-radius:99px}
+  .photo-open-link{color:var(--blue);font-size:11px;text-decoration:none;margin-top:4px;display:inline-block}
+  .photo-open-link:hover{text-decoration:underline}
+
+  /* ── LIGHTBOX ── */
+  .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:600;display:none;align-items:center;justify-content:center}
+  .lightbox-overlay.open{display:flex}
+  .lightbox-img{max-width:88vw;max-height:84vh;border-radius:8px;object-fit:contain;display:block}
+  .lb-close{position:fixed;top:14px;right:18px;background:rgba(255,255,255,.18);color:white;border:none;font-size:22px;cursor:pointer;border-radius:8px;padding:4px 14px;z-index:601}
+  .lb-nav{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.18);color:white;border:none;font-size:32px;cursor:pointer;border-radius:8px;padding:6px 16px;z-index:601;line-height:1}
+  .lb-prev{left:14px} .lb-next{right:14px}
+  .lb-counter{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);color:white;font-size:12px;background:rgba(0,0,0,.5);padding:4px 14px;border-radius:99px;z-index:601}
+
+  @media(max-width:768px){
+    .cards-row-4{grid-template-columns:repeat(2,1fr)}
+    .cards-row-3{grid-template-columns:1fr}
+    .personal-header{flex-direction:column;gap:12px}
+    .personal-grab{text-align:left}
+    .filter-bar{flex-direction:column;align-items:flex-start}
+    .detail-grid{grid-template-columns:1fr}
+  }
+  @media print{
+    .login-overlay,.header,.tabs,.filter-bar,.export-bar,.connect-notice,.search-bar{display:none!important}
+    #view-tech{display:none!important}
+    #view-manager{display:block!important}
+    body{background:white;font-size:12px}
+    .card{box-shadow:none}
+    @page{margin:1.5cm}
+  }
+</style>
+</head>
+<body>
+
+<!-- ════ LOGIN ════ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">☀️</div>
+    <div class="login-title">JAWIS Dashboard</div>
+    <div class="login-sub">Grab O&amp;M Solar — NPS Solar</div>
+    <input type="text" id="loginId" class="login-input"
+           placeholder="รหัสพนักงาน (เช่น 660850)"
+           onkeydown="if(event.key==='Enter')document.getElementById('loginPw').focus()" />
+    <input type="password" id="loginPw" class="login-input"
+           placeholder="รหัสผ่าน (ค่าเริ่มต้น = รหัสพนักงาน)"
+           onkeydown="if(event.key==='Enter')doLogin()" />
+<div class="login-error" id="loginError">❌ รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง</div>
+    <button class="login-btn" onclick="doLogin()">🔑 เข้าสู่ระบบ</button>
+  </div>
+</div>
+
+<!-- ════ HEADER ════ -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">☀️ JAWIS<span> Dashboard</span></div>
+    <div class="badge">Grab O&amp;M Solar</div>
+  </div>
+  <div class="header-right">
+    <span class="date-label" id="currentDate"></span>
+    <span class="user-badge" id="loggedUser" style="display:none"></span>
+    <button class="refresh-btn" onclick="refreshData()">🔄 รีเฟรช</button>
+    <button class="logout-btn" id="logoutBtn" style="display:none" onclick="logout()">ออกจากระบบ</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" id="tabTech" onclick="switchTab('tech')">🔧 มุมมองช่าง</div>
+  <div class="tab" id="tabSupervisor" style="display:none" onclick="switchTab('supervisor')">🛡️ Supervisor</div>
+</div>
+
+<!-- ════ VIEW: TECH ════ -->
+<div class="view active" id="view-tech">
+  <div class="content">
+    <div class="connect-notice" id="noticeTech">ℹ️ กำลังโหลดข้อมูล...</div>
+
+    <!-- แสดงเมื่อ Supervisor ดูในหน้า Tech -->
+    <div class="search-bar" id="techSearchBar" style="display:none">
+      <input type="text" id="techSearch" placeholder="ค้นหาชื่อหรือรหัสพนักงาน..." />
+      <select id="techSelect" onchange="selectTech(this.value)">
+        <option value="">— เลือกช่าง —</option>
+      </select>
+      <button class="search-btn" onclick="searchTech()">🔍 ดูข้อมูล</button>
+    </div>
+
+    <!-- แสดงเมื่อช่าง login — ล็อกดูแค่ตัวเอง -->
+    <div class="tech-lock-info" id="techLockInfo" style="display:none">
+      🔒 <span id="techLockName">—</span> — คุณดูได้เฉพาะข้อมูลของตัวเองเท่านั้น
+    </div>
+
+    <div id="personalSection" style="display:none">
+      <!-- ชื่อ + Grab รวมเดือน -->
+      <div class="personal-header">
+        <div>
+          <div class="personal-name" id="pName">—</div>
+          <div class="personal-id" id="pId">—</div>
+        </div>
+        <div class="personal-grab">
+          <div class="personal-grab-label">Grab เดือนนี้ (รวม)</div>
+          <div class="personal-grab-value" id="pMonthGrab">—</div>
+        </div>
+      </div>
+
+      <!-- Date Navigator -->
+      <div class="date-nav">
+        <button class="date-nav-btn" onclick="techDateNav(-1)">‹ ก่อนหน้า</button>
+        <div class="date-nav-label" id="dateNavLabel">—</div>
+        <input type="date" id="techDatePicker" onchange="techDateSet(this.value)" title="เลือกวันที่" />
+        <button class="date-nav-btn" onclick="techDateNav(1)">ถัดไป ›</button>
+        <button class="date-nav-btn today" onclick="techDateNav(0,'latest')">📅 ล่าสุด</button>
+      </div>
+
+      <!-- KPI วันที่เลือก -->
+      <div class="cards-row cards-row-4" style="margin-bottom:20px">
+        <div class="card card-green">
+          <div class="card-label">Grab วันที่เลือก</div>
+          <div class="card-value" id="pTodayGrab">—</div>
+          <div class="card-sub">บาท</div>
+        </div>
+        <div class="card card-orange">
+          <div class="card-label">งานวันที่เลือก</div>
+          <div class="card-value" id="pTodayTasks">—</div>
+          <div class="card-sub">รายการ</div>
+        </div>
+        <div class="card card-blue">
+          <div class="card-label">เวลาทำงานรวม</div>
+          <div class="card-value" id="pTotalTime">—</div>
+          <div class="card-sub">นาที</div>
+        </div>
+        <div class="card card-yellow">
+          <div class="card-label">Full JV Rate</div>
+          <div class="card-value" id="pFullRate">—</div>
+          <div class="card-sub">% ของงานทั้งหมด</div>
+        </div>
+      </div>
+
+      <!-- เป้าหมายเดือน -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="section-title">💰 เป้าหมาย Grab เดือนนี้</div>
+        <div id="progressBars"></div>
+      </div>
+
+      <!-- AI Summary -->
+      <div id="aiSummaryBox" style="display:none" class="ai-box">
+        <div class="ai-box-title">🤖 AI Summary — งานล่าสุด</div>
+        <div class="ai-text" id="aiSummaryText">—</div>
+      </div>
+
+      <!-- ตารางงานวันที่เลือก -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="section-title">📋 งานวันที่เลือก <small style="font-size:11px;color:var(--gray);font-weight:400">(กด row เพื่อดูรายละเอียด)</small></div>
+        <div id="pendingNotice" class="pending-notice" style="display:none">
+          ⏳ มีงานที่รอ AI ประมวลผล — JV Amount จะอัปเดตหลัง n8n ทำงานเสร็จ
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>งาน</th><th>เวลา</th><th>ใช้เวลา</th>
+                <th>JV</th><th>Grab (บาท)</th><th>รูป</th><th>Backlog</th>
+              </tr>
+            </thead>
+            <tbody id="techTaskTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chart 7 วัน -->
+      <div class="chart-wrap" style="margin-bottom:20px">
+        <div class="section-title">📈 Grab 7 วันล่าสุด</div>
+        <div class="chart-container"><canvas id="techChart"></canvas></div>
+      </div>
+
+      <!-- ประวัติรายวัน -->
+      <div class="card">
+        <div class="section-title">🗓️ ประวัติรายวัน <small style="font-size:11px;color:var(--gray);font-weight:400">(กดเพื่อดูงานวันนั้น)</small></div>
+        <div id="dailyHistory"></div>
+      </div>
+    </div>
+
+    <div id="techEmpty" class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <div>เลือกช่างจากรายการเพื่อดูข้อมูล</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ VIEW: SUPERVISOR ════ -->
+<div class="view" id="view-supervisor">
+  <div class="content">
+    <div class="connect-notice" id="noticeSupervisor">ℹ️ กำลังโหลดข้อมูล...</div>
+
+    <div class="filter-bar">
+      <label>📅 ช่วงวันที่:</label>
+      <input type="date" id="filterFrom" onchange="applyDateFilter()" />
+      <span style="color:var(--gray)">—</span>
+      <input type="date" id="filterTo" onchange="applyDateFilter()" />
+      <button class="filter-quick" onclick="quickFilter('today')">วันนี้</button>
+      <button class="filter-quick" onclick="quickFilter('week')">7 วัน</button>
+      <button class="filter-quick" onclick="quickFilter('month')">เดือนนี้</button>
+      <button class="filter-quick" onclick="quickFilter('all')">ทั้งหมด</button>
+    </div>
+
+    <div class="export-bar">
+      <button class="export-btn export-csv" onclick="exportCSV()">📊 Export CSV</button>
+      <button class="export-btn export-pdf" onclick="exportPDF()">🖨️ Print / PDF</button>
+    </div>
+
+    <div class="cards-row cards-row-4" style="margin-bottom:20px">
+      <div class="card card-orange">
+        <div class="card-label" id="mPeriodLabel">งานช่วงนี้ทั้งทีม</div>
+        <div class="card-value" id="mTotalTasks">—</div>
+        <div class="card-sub">รายการ</div>
+      </div>
+      <div class="card card-green">
+        <div class="card-label">Grab รวม</div>
+        <div class="card-value" id="mTotalGrab">—</div>
+        <div class="card-sub">บาท (ไม่นับ PENDING)</div>
+      </div>
+      <div class="card card-yellow">
+        <div class="card-label">งานค้าง (Backlog)</div>
+        <div class="card-value" id="mBacklogCount">—</div>
+        <div class="card-sub">รายการ</div>
+      </div>
+      <div class="card" style="border-left:3px solid #F59E0B">
+        <div class="card-label">⏳ รอ AI ประมวลผล</div>
+        <div class="card-value" style="color:#D97706" id="mPendingCount">—</div>
+        <div class="card-sub">PENDING tasks</div>
+      </div>
+    </div>
+
+    <div class="cards-row cards-row-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="section-title">🏆 Grab ช่วงนี้ (รายคน)</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>ช่าง</th><th>งาน</th><th>Full JV</th><th>Grab (บาท)</th></tr></thead>
+            <tbody id="rankingTable"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin-bottom:0">
+        <div class="section-title">📊 Grab ทีม 7 วัน</div>
+        <div class="chart-container"><canvas id="managerChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title">📋 งานทั้งหมด <small style="font-size:11px;color:var(--gray);font-weight:400">(กด row เพื่อดูรายละเอียด)</small></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>วันที่/เวลา</th><th>ช่าง</th><th>งาน</th>
+              <th>ใช้เวลา</th><th>JV</th><th>Grab</th>
+              <th>AI Summary</th><th>Flag</th>
+            </tr>
+          </thead>
+          <tbody id="allTaskTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="cards-row cards-row-2">
+      <div class="card">
+        <div class="section-title">🐢 งานผิดปกติ</div>
+        <div id="anomalyList"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">⚠️ Backlog คงค้าง</div>
+        <div id="backlogList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ TASK DETAIL MODAL ════ -->
+<div class="modal-overlay" id="taskModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalTitle">—</div>
+        <div class="modal-subtitle" id="modalSubtitle">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ════ PHOTO LIGHTBOX ════ -->
+<div class="lightbox-overlay" id="photoLightbox" onclick="if(event.target===this)closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <button class="lb-nav lb-prev" onclick="lightboxNav(-1)" id="lbPrev">‹</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="รูปงาน" />
+  <button class="lb-nav lb-next" onclick="lightboxNav(1)" id="lbNext">›</button>
+  <div class="lb-counter" id="lbCounter"></div>
+</div>
+
+<!-- ════ JAVASCRIPT ════ -->
+<script>
+// ══════════════════════════════════════════════════════
+// ⚙️ CONFIG
+// ══════════════════════════════════════════════════════
+const CONFIG = {
+  CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRj4VRF6ROCzNRZH_Cb9zExNHpSRRI8eKqYJ-vPR-hRsu-1lpa0O2rxxEgNzs74d1w_TO7gYHcI0s3S/pub?gid=0&single=true&output=csv",
+  USE_MOCK: false,
+};
+
+// ══════════════════════════════════════════════════════
+// 🛠️ HELPER FUNCTIONS
+// ══════════════════════════════════════════════════════
+function timeToMin(t) {
+  if (!t || !t.includes(":")) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h||0)*60 + (m||0);
+}
+function calcWorkMin(timein, timefinish) {
+  let d = timeToMin(timefinish) - timeToMin(timein);
+  if (d < 0) d += 1440;
+  return d > 0 ? d : 0;
+}
+function parseTimestamp(ts) {
+  if (!ts) return "";
+  const datePart = ts.split(" ")[0];
+  const p = datePart.split("/");
+  if (p.length < 3) return ts;
+  return `${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
+}
+const MONTHS_TH = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function formatDateTH(iso) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${parseInt(d)} ${MONTHS_TH[parseInt(m)]} ${parseInt(y)+543}`;
+}
+function getTaskShort(task) {
+  return task.replace(/^GRAB_NPS_/,"").replace(/^GRAB_/,"").replace(/_/g," ");
+}
+const TASK_STD = {
+  "CM_01":120,"CM_02":120,"CM_03":90,"CM_04":120,"CM_05":180,"CM_06":120,"CM_08":120,
+  "PM_A02":60,"PM_M01":60,"PM_M06":30,"PM_D01":90,"PM_D02":60,
+  "PM_D04":60,"PM_D06":60,"PM_D07":60,"PM_W08":120,
+  "DAILY":60,"D03":30,"AEC_D01":30
+};
+function getStdMin(task) {
+  const t = task.toUpperCase();
+  for (const [k, v] of Object.entries(TASK_STD)) {
+    if (t.includes(k)) return v;
+  }
+  return 90;
+}
+function jvClass(jv) {
+  return jv==="FULL"?"jv-full":jv==="MIN"?"jv-min":jv==="BREAKDOWN"?"jv-breakdown":"jv-pending";
+}
+function getJvDisplay(t) {
+  const jv = t.jv_decision || "PENDING";
+  return `<span class="${jvClass(jv)}">${jv}</span>`;
+}
+// แยก URL รูปจาก VERIFY field (คั่นด้วย , — ระวัง URL อาจมี comma ใน query string ไม่ได้)
+function parsePhotoUrls(verifyStr) {
+  if (!verifyStr) return [];
+  // split เฉพาะ comma ที่ไม่อยู่ใน URL (http... จนถึง , ถัดไปที่ขึ้น http หรือจบ string)
+  return verifyStr.split(/,(?=https?:\/\/|$)/).map(s=>s.trim()).filter(s=>s.startsWith("http"));
+}
+
+// ══════════════════════════════════════════════════════
+// 👥 EMPLOYEE MASTER LIST (22 คน)
+// ══════════════════════════════════════════════════════
+const EMPLOYEES = [
+  {id:"660038",name:"จิตรทิวา มีชัย",         role:"Field OP"},
+  {id:"660850",name:"พงษ์พัฒน์ จำบุญ",        role:"SCADA OP"},
+  {id:"670084",name:"อุดมศักดิ์ นกใหญ่",      role:"Field OP"},
+  {id:"670278",name:"ธนวัชร์ ภักตะไชย",       role:"Field OP"},
+  {id:"660794",name:"วงศกร แก่นจันทร์",       role:"SCADA OP"},
+  {id:"690090",name:"กิตติกร ครูทนาค",        role:"SCADA OP", nickname:"อาร์ท"},
+  {id:"690089",name:"รามเทพ วงษ์เสนา",        role:"Field OP", nickname:"ฮอล"},
+  {id:"690088",name:"อมรเทพ พัดจันทร์",       role:"Field OP", nickname:"ต้น"},
+  {id:"690086",name:"เพชรสระแก้ว จิตตะปัญญา", role:"Field OP", nickname:"เพชร"},
+  {id:"690170",name:"อชิตะ คำลือ",            role:"SCADA OP", nickname:"อชิ"},
+  {id:"690171",name:"ธนภัทร ทองวัน",          role:"SCADA OP", nickname:"ซี"},
+  {id:"690165",name:"อภิรักษ์ สิงจานุสงค์",   role:"Field OP", nickname:"ป้อ"},
+  {id:"690166",name:"ภาณุวิชญ์ ภูกรองทอง",    role:"Field OP", nickname:"เต้"},
+  {id:"690167",name:"ธนัฐฌา ยืนหาญ",          role:"SCADA OP", nickname:"โก้"},
+  {id:"690169",name:"ขจรพล สีสวย",            role:"Field OP", nickname:"ภีม"},
+];
+
+const SUPERVISOR_PW = "admin"; // รหัสผ่าน Supervisor
+
+// ══════════════════════════════════════════════════════
+// 🔐 LOGIN STATE
+// ══════════════════════════════════════════════════════
+let LOGIN_STATE = {loggedIn:false, isSupervisor:false, employeeId:null, employeeName:null};
+
+function doLogin() {
+  const id    = document.getElementById("loginId").value.trim();
+  const pw    = document.getElementById("loginPw").value.trim();
+  const errEl = document.getElementById("loginError");
+
+  // ── Supervisor login ──
+  if (id.toLowerCase() === "admin" && pw === SUPERVISOR_PW) {
+    errEl.style.display = "none";
+    LOGIN_STATE = {loggedIn:true, isSupervisor:true, employeeId:"ADMIN", employeeName:"Supervisor"};
+    document.getElementById("loginOverlay").style.display = "none";
+    document.getElementById("loggedUser").textContent = "🛡️ Supervisor";
+    document.getElementById("loggedUser").style.display = "inline";
+    document.getElementById("logoutBtn").style.display = "inline";
+    document.getElementById("tabSupervisor").style.display = "block";
+    document.getElementById("techSearchBar").style.display = "flex";
+    document.getElementById("techLockInfo").style.display  = "none";
+    switchTab("supervisor");
+    renderSupervisorView();
+    renderManagerChart();
+    return;
+  }
+
+  // ── Employee login ──
+  let emp = EMPLOYEES.find(e => e.id === id);
+  if (!emp) {
+    const t = ACTIVE_TASKS.find(t => t.id===id || t.employee_id===id);
+    if (t) emp = {id: t.id||t.employee_id, name: t.name||t.employee_name, role:""};
+  }
+  if (!emp || pw !== id) { errEl.style.display="block"; return; }
+
+  errEl.style.display = "none";
+  LOGIN_STATE = {loggedIn:true, isSupervisor:false, employeeId:emp.id, employeeName:emp.name};
+  document.getElementById("loginOverlay").style.display = "none";
+  document.getElementById("loggedUser").textContent = "👤 "+emp.name+(emp.role?" | "+emp.role:"");
+  document.getElementById("loggedUser").style.display = "inline";
+  document.getElementById("logoutBtn").style.display = "inline";
+  document.getElementById("techSearchBar").style.display = "none";
+  document.getElementById("techLockInfo").style.display  = "flex";
+  document.getElementById("techLockName").textContent = "👤 "+emp.name+" ("+emp.id+")";
+  switchTab("tech");
+  loadTechView(emp.name, emp.id);
+}
+
+
+function logout() {
+  LOGIN_STATE = {loggedIn:false, isSupervisor:false, employeeId:null, employeeName:null};
+  document.getElementById("loginOverlay").style.display = "flex";
+  document.getElementById("loggedUser").style.display = "none";
+  document.getElementById("logoutBtn").style.display = "none";
+  document.getElementById("loginId").value = "";
+  document.getElementById("loginPw").value = "";
+  document.getElementById("loginError").style.display = "none";
+  document.getElementById("tabSupervisor").style.display = "none";
+  document.getElementById("personalSection").style.display = "none";
+  document.getElementById("techEmpty").style.display = "block";
+  document.getElementById("techSearchBar").style.display = "none";
+  document.getElementById("techLockInfo").style.display = "none";
+  switchTab("tech");
+}
+
+// ══════════════════════════════════════════════════════
+// 📡 GOOGLE SHEETS LOADER
+// ══════════════════════════════════════════════════════
+async function loadFromSheets() {
+  if (CONFIG.USE_MOCK) return null;
+  try {
+    const res = await fetch(CONFIG.CSV_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return parseCSV(await res.text());
+  } catch(e) {
+    console.warn("Sheets error:", e.message);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 📊 PARSE CSV — Schema 16 คอลัมน์ (A–P)
+// [0]Timestamp [1]ID [2]NAME [3]TASK
+// [4]TIMEIN [5]TIMEONSITE [6]TIMEFINISH [7]TEAMMATE
+// [8]VERIFY [9]VERIFYTOOL [10]BACKLOG [11]DETAIL
+// [12]COUNT [13]JV_DECISION [14]JV_AMOUNT [15]AI_SUMMARY
+// ══════════════════════════════════════════════════════
+function parseCSV(csv) {
+  const lines = csv.trim().split("\n");
+  return lines.slice(1).map(line => {
+    const cols = []; let cur="", inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ}
+      else if(c===','&&!inQ){cols.push(cur);cur=""}
+      else{cur+=c}
+    }
+    cols.push(cur);
+    const clean = cols.map(c=>c.replace(/^'/, "").trim());
+
+    const timestamp  = clean[0]  || "";
+    const date       = parseTimestamp(timestamp);
+    const id         = clean[1]  || "";
+    const name       = clean[2]  || "";
+    const task       = clean[3]  || "";
+    const timein     = clean[4]  || "";
+    const timeonsite = clean[5]  || "";
+    const timefinish = clean[6]  || "";
+    const teammate   = clean[7]  || "";
+    const verify     = clean[8]  || "";
+    const verifytool = clean[9]  || "";
+    const backlog    = clean[10] || "";
+    const detail     = clean[11] || "";
+    const count      = parseInt(clean[12]) || 0;
+    const jv_dec     = (clean[13]||"").trim().toUpperCase() || "PENDING";
+    const jv_amount  = parseFloat(clean[14]) || 0;
+    const ai_summary = clean[15] || "";
+    const work_min   = calcWorkMin(timein, timefinish);
+    const std_min    = getStdMin(task);
+
+    return {
+      timestamp, date,
+      id, name, task,
+      task_short: getTaskShort(task),
+      timein, timeonsite, timefinish,
+      work_min, std_min,
+      teammate, verify, verifytool,
+      backlog, detail, count,
+      jv_decision: ["FULL","MIN","BREAKDOWN","PENDING"].includes(jv_dec) ? jv_dec : "PENDING",
+      jv_amount, ai_summary,
+      photo_ok: verify.startsWith("http"),
+      is_urgent: backlog.length > 0,
+      is_teammate_entry: false,
+      employee_name: name, employee_id: id,
+      time_start: timein, time_onsite: timeonsite, time_finish: timefinish,
+    };
+  }).filter(r => r.date && r.name);
+}
+
+// ══════════════════════════════════════════════════════
+// 👥 EXPAND TEAMMATE — สร้าง entry สำหรับ Teammate
+// teammate field มีรหัสพนักงานคั่น , เช่น "660850,690170"
+// Teammate ได้ JV เท่ากับงานต้นฉบับ แต่แสดงในชื่อของตัวเอง
+// ══════════════════════════════════════════════════════
+function expandTeammates(rawTasks) {
+  const result = [];
+  rawTasks.forEach(t => {
+    result.push(t); // งานต้นฉบับ
+
+    if (!t.teammate) return;
+    const ids = t.teammate.split(",").map(s=>s.trim()).filter(Boolean);
+    ids.forEach(tid => {
+      if (tid === t.id) return; // ข้าม main worker
+      const emp = EMPLOYEES.find(e => e.id === tid);
+      if (!emp) return; // ถ้าไม่รู้จักรหัสนี้ ข้าม
+      result.push({
+        ...t,
+        id:   emp.id,
+        name: emp.name,
+        employee_name: emp.name,
+        employee_id:   emp.id,
+        is_teammate_entry: true, // flag ว่าเป็น entry ของ teammate
+        // JV เท่าเดิม (ได้เงินเท่ากัน)
+      });
+    });
+  });
+  return result;
+}
+
+// ══════════════════════════════════════════════════════
+// 🗃️ MOCK DATA
+// ══════════════════════════════════════════════════════
+const MOCK_TODAY = "2026-05-28";
+const TASKS_MOCK = [
+  {timestamp:"28/05/2026 08:46:00",date:"2026-05-28",id:"660850",name:"พงษ์พัฒน์ จ่าบุญ",task:"GRAB_NPS_CM_01_INV_StartLate",task_short:"CM 01 INV StartLate",timein:"08:00",timeonsite:"08:30",timefinish:"09:46",work_min:106,std_min:120,teammate:"660850",verify:"https://storage.googleapis.com/test/photo1.jpg",verifytool:"",backlog:"",detail:'{"inverter":"13BRU11","string":"st.5","problem":"INV หยุดก่อนกำหนด","solution":"Reset INV แก้ไขได้"}',count:0,jv_decision:"FULL",jv_amount:115,ai_summary:"ช่างลงตรวจ INV-13BRU11 พบ String 5 หยุดทำงาน Reset INV แก้ไขได้",photo_ok:true,is_urgent:false,is_teammate_entry:false,employee_name:"พงษ์พัฒน์ จ่าบุญ",employee_id:"660850",time_start:"08:00",time_onsite:"08:30",time_finish:"09:46"},
+  {timestamp:"28/05/2026 10:20:00",date:"2026-05-28",id:"660850",name:"พงษ์พัฒน์ จ่าบุญ",task:"GRAB_NPS_PM_D01_SCADA_INV_Rapid_Route_Check",task_short:"PM D01 SCADA INV",timein:"10:00",timeonsite:"10:05",timefinish:"11:30",work_min:90,std_min:90,teammate:"660850,690170",verify:"https://storage.googleapis.com/test/photo2a.jpg,https://storage.googleapis.com/test/photo2b.jpg",verifytool:"",backlog:"",detail:'{"result":"ปกติ","note":"INV ทั้ง 15 ตัวทำงานปกติ"}',count:0,jv_decision:"FULL",jv_amount:75,ai_summary:"ตรวจ SCADA INV Rapid Route ครบ 15 INV ผลปกติ ไม่พบ Alarm",photo_ok:true,is_urgent:false,is_teammate_entry:false,employee_name:"พงษ์พัฒน์ จ่าบุญ",employee_id:"660850",time_start:"10:00",time_onsite:"10:05",time_finish:"11:30"},
+  {timestamp:"28/05/2026 09:00:00",date:"2026-05-28",id:"680119",name:"วัสกุล นัจจันทร์ลา",task:"GRAB_NPS_CM_06_INV_String_Lost",task_short:"CM 06 INV String Lost",timein:"09:00",timeonsite:"09:40",timefinish:"12:30",work_min:210,std_min:120,teammate:"680119,690165",verify:"https://storage.googleapis.com/test/photo3.jpg",verifytool:"https://storage.googleapis.com/test/tool3.jpg",backlog:"MC4 Connector อีก 2 จุดรอเปลี่ยน",detail:'{"string":"st.8","problem":"MC4 ชำรุด 3 จุด","solution":"เปลี่ยนสำเร็จ 1 จุด"}',count:0,jv_decision:"BREAKDOWN",jv_amount:207,ai_summary:"พบ MC4 String 8 ชำรุด 3 จุด ซ่อมสำเร็จ 1 จุด เหลือ 2 จุดรอ Stock",photo_ok:true,is_urgent:true,is_teammate_entry:false,employee_name:"วัสกุล นัจจันทร์ลา",employee_id:"680119",time_start:"09:00",time_onsite:"09:40",time_finish:"12:30"},
+];
+
+// ══════════════════════════════════════════════════════
+// 🔄 ACTIVE DATA
+// ══════════════════════════════════════════════════════
+let ACTIVE_TASKS = expandTeammates(TASKS_MOCK);
+let ACTIVE_TECHS = [...new Set(ACTIVE_TASKS.map(t=>t.name))].filter(Boolean);
+let ACTIVE_TODAY = MOCK_TODAY;
+
+// ══════════════════════════════════════════════════════
+// 📅 DATE FILTER
+// ══════════════════════════════════════════════════════
+let DATE_FILTER = {from:"",to:""};
+
+function getFilteredTasks() {
+  let tasks = ACTIVE_TASKS;
+  if (DATE_FILTER.from) tasks = tasks.filter(t=>t.date>=DATE_FILTER.from);
+  if (DATE_FILTER.to)   tasks = tasks.filter(t=>t.date<=DATE_FILTER.to);
+  return tasks;
+}
+function applyDateFilter() {
+  DATE_FILTER.from = document.getElementById("filterFrom").value;
+  DATE_FILTER.to   = document.getElementById("filterTo").value;
+  renderSupervisorView(); renderManagerChart();
+}
+function quickFilter(preset) {
+  const today = ACTIVE_TODAY;
+  if (preset==="today")      DATE_FILTER={from:today,to:today};
+  else if (preset==="week") {
+    const d=new Date(today+"T00:00:00"); d.setDate(d.getDate()-6);
+    DATE_FILTER={from:d.toISOString().split("T")[0],to:today};
+  }
+  else if (preset==="month") DATE_FILTER={from:today.substring(0,7)+"-01",to:today};
+  else                       DATE_FILTER={from:"",to:""};
+  document.getElementById("filterFrom").value=DATE_FILTER.from;
+  document.getElementById("filterTo").value=DATE_FILTER.to;
+  renderSupervisorView(); renderManagerChart();
+}
+
+// ══════════════════════════════════════════════════════
+// 📤 EXPORT
+// ══════════════════════════════════════════════════════
+function exportCSV() {
+  const tasks = getFilteredTasks();
+  if (!tasks.length) { alert("ไม่มีข้อมูล"); return; }
+  const headers=["วันที่","เวลา","ชื่อช่าง","รหัส","งาน","เข้า CB","Onsite","เสร็จ","เวลา(นาที)","Teammate","JV Decision","Grab(บาท)","Backlog","AI Summary","Teammate Entry"];
+  const rows=tasks.map(t=>[t.date,t.timestamp.split(" ")[1]||"",t.name,t.id,t.task_short,t.timein,t.timeonsite,t.timefinish,t.work_min,t.teammate,t.jv_decision,t.jv_amount,t.backlog,t.ai_summary,t.is_teammate_entry?"YES":"NO"]);
+  const csv=[headers,...rows].map(r=>r.map(c=>`"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`JAWIS_${DATE_FILTER.from||"all"}_${DATE_FILTER.to||"all"}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+function exportPDF() { window.print(); }
+
+// ══════════════════════════════════════════════════════
+// 🚀 INIT
+// ══════════════════════════════════════════════════════
+document.addEventListener("DOMContentLoaded", async () => {
+  const nowISO = new Date().toISOString().split("T")[0];
+  document.getElementById("currentDate").textContent = "📅 "+formatDateTH(nowISO);
+
+  showBanner("กำลังโหลดข้อมูลจาก Google Sheets...");
+  const sheetData = await loadFromSheets();
+
+  if (sheetData && sheetData.length > 0) {
+    const expanded = expandTeammates(sheetData);
+    ACTIVE_TASKS = expanded;
+    ACTIVE_TECHS = [...new Set(expanded.map(t=>t.name))].filter(Boolean);
+    ACTIVE_TODAY = expanded.map(t=>t.date).sort().at(-1) || nowISO;
+    showBanner(`✅ โหลดข้อมูลสำเร็จ — ${sheetData.length} รายการ | Teammate expanded: ${expanded.length} | ล่าสุด: ${formatDateTH(ACTIVE_TODAY)}`,"green");
+  } else if (!CONFIG.USE_MOCK) {
+    showBanner("⚠️ โหลด Sheets ไม่ได้ — ใช้ Mock Data แทน","yellow");
+  } else {
+    showBanner("⚠️ Demo Mode — ข้อมูลจำลอง","yellow");
+  }
+
+  // Dropdown ช่าง (สำหรับ Supervisor)
+  const sel=document.getElementById("techSelect");
+  sel.innerHTML='<option value="">— เลือกช่าง —</option>';
+  ACTIVE_TECHS.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;sel.appendChild(o);});
+
+  document.getElementById("filterFrom").value = ACTIVE_TODAY;
+  document.getElementById("filterTo").value   = ACTIVE_TODAY;
+  DATE_FILTER = {from:ACTIVE_TODAY, to:ACTIVE_TODAY};
+
+  renderSupervisorView();
+  renderManagerChart();
+});
+
+function showBanner(msg, type="blue") {
+  const C={blue:{bg:"var(--blue-light)",bd:"#93C5FD",tx:"#1D4ED8"},green:{bg:"var(--green-light)",bd:"#86EFAC",tx:"#15803D"},yellow:{bg:"var(--yellow-light)",bd:"#FCD34D",tx:"#92400E"}};
+  const c=C[type];
+  document.querySelectorAll(".connect-notice").forEach(el=>{
+    el.style.background=c.bg; el.style.borderColor=c.bd; el.style.color=c.tx;
+    el.innerHTML="ℹ️ "+msg;
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// 🔁 TAB
+// ══════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.getElementById("tabTech").classList.toggle("active", tab==="tech");
+  document.getElementById("tabSupervisor").classList.toggle("active", tab==="supervisor");
+  document.getElementById("view-tech").classList.toggle("active", tab==="tech");
+  document.getElementById("view-supervisor").classList.toggle("active", tab==="supervisor");
+}
+
+// ══════════════════════════════════════════════════════
+// 🔧 TECH VIEW
+// ══════════════════════════════════════════════════════
+let TECH_EMP_NAME = "";
+let TECH_EMP_ID   = "";
+let TECH_DATE     = "";  // วันที่ที่กำลังดูอยู่
+
+function selectTech(name) { if(name) document.getElementById("techSearch").value=name; }
+
+function searchTech() {
+  const query = (document.getElementById("techSearch").value.trim()||document.getElementById("techSelect").value).trim();
+  if (!query) return;
+  const empMaster = EMPLOYEES.find(e=>e.id===query||e.name.includes(query));
+  const empTask   = ACTIVE_TASKS.find(t=>t.id===query||t.name===query);
+  const empName   = empMaster?.name || empTask?.name || query;
+  const empId     = empMaster?.id   || empTask?.id   || "";
+  TECH_EMP_NAME = empName;
+  TECH_EMP_ID   = empId;
+  TECH_DATE     = getLatestDateForTech(empName, empId);
+  loadTechView(empName, empId, TECH_DATE);
+}
+
+// หาวันล่าสุดที่ช่างคนนั้นมีงาน
+function getLatestDateForTech(name, id) {
+  const myDates = ACTIVE_TASKS
+    .filter(t => t.name===name || t.id===id)
+    .map(t => t.date).filter(Boolean).sort();
+  return myDates.at(-1) || ACTIVE_TODAY;
+}
+
+// ปุ่ม ← →
+function techDateNav(dir, preset) {
+  if (preset === "latest") {
+    TECH_DATE = getLatestDateForTech(TECH_EMP_NAME, TECH_EMP_ID);
+  } else {
+    // หาลิสต์วันที่มีงานของช่างคนนี้
+    const myDates = [...new Set(
+      ACTIVE_TASKS.filter(t=>t.name===TECH_EMP_NAME||t.id===TECH_EMP_ID).map(t=>t.date)
+    )].sort();
+    const idx = myDates.indexOf(TECH_DATE);
+    const newIdx = idx + dir;
+    if (newIdx >= 0 && newIdx < myDates.length) {
+      TECH_DATE = myDates[newIdx];
+    } else {
+      return; // ไม่มีวันถัดไป/ก่อนหน้าแล้ว
+    }
+  }
+  loadTechView(TECH_EMP_NAME, TECH_EMP_ID, TECH_DATE);
+}
+
+// เลือกวันจาก date picker
+function techDateSet(val) {
+  if (!val) return;
+  TECH_DATE = val;
+  loadTechView(TECH_EMP_NAME, TECH_EMP_ID, TECH_DATE);
+}
+
+function loadTechView(empName, empId, date) {
+  TECH_EMP_NAME = empName;
+  TECH_EMP_ID   = empId;
+  // ถ้าไม่ระบุวัน ใช้วันล่าสุดที่ช่างมีงาน (ไม่ใช่ ACTIVE_TODAY ของ dataset)
+  TECH_DATE = date || getLatestDateForTech(empName, empId);
+
+  const empMaster = EMPLOYEES.find(e=>e.id===empId||e.name===empName);
+  const empRole   = empMaster?.role || "";
+
+  // งานทั้งหมดของช่างคนนี้
+  const allMyTasks = ACTIVE_TASKS.filter(t => t.name===empName || t.id===empId);
+
+  // งานวันที่เลือก
+  const myTasks = allMyTasks.filter(t => t.date === TECH_DATE);
+
+  // Grab รวมเดือนปัจจุบัน
+  const thisMonth  = TECH_DATE.substring(0,7);
+  const monthGrab  = allMyTasks.filter(t=>t.date.startsWith(thisMonth)).reduce((s,t)=>s+(t.jv_amount||0),0);
+
+  // อัปเดต header
+  document.getElementById("pName").textContent = empName;
+  document.getElementById("pId").textContent   = "รหัส: "+empId+(empRole?" | "+empRole:"");
+  document.getElementById("pMonthGrab").textContent = monthGrab.toLocaleString()+" บาท";
+
+  // อัปเดต Date Navigator
+  document.getElementById("dateNavLabel").textContent = formatDateTH(TECH_DATE);
+  document.getElementById("techDatePicker").value = TECH_DATE;
+
+  // KPI วันที่เลือก
+  if (myTasks.length===0) {
+    document.getElementById("pTodayGrab").textContent  = "0";
+    document.getElementById("pTodayTasks").textContent = "0";
+    document.getElementById("pTotalTime").textContent  = "0";
+    document.getElementById("pFullRate").textContent   = "—";
+    document.getElementById("progressBars").innerHTML  =
+      `<div style="color:var(--gray);font-size:12px;padding:8px 0">ยังไม่มีงานบันทึก ${formatDateTH(TECH_DATE)}</div>`;
+    document.getElementById("techTaskTable").innerHTML =
+      `<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:24px">ไม่มีงานในวันที่เลือก</td></tr>`;
+    document.getElementById("aiSummaryBox").style.display  = "none";
+    document.getElementById("pendingNotice").style.display = "none";
+  } else {
+    const dayGrab    = myTasks.reduce((s,t)=>s+(t.jv_amount||0),0);
+    const totalMin   = myTasks.reduce((s,t)=>s+(t.work_min||0),0);
+    const fullCount  = myTasks.filter(t=>t.jv_decision==="FULL").length;
+    const pendingCnt = myTasks.filter(t=>t.jv_decision==="PENDING").length;
+    const doneCount  = myTasks.filter(t=>t.jv_decision!=="PENDING").length;
+
+    document.getElementById("pTodayGrab").textContent  = dayGrab.toLocaleString();
+    document.getElementById("pTodayTasks").textContent = myTasks.length;
+    document.getElementById("pTotalTime").textContent  = totalMin;
+    document.getElementById("pFullRate").textContent   = doneCount>0?Math.round(fullCount/doneCount*100)+"%":"—";
+
+    const target=3000, pct=Math.min(100,Math.round(monthGrab/target*100));
+    document.getElementById("progressBars").innerHTML = `
+      <div class="progress-row">
+        <span>เดือนนี้ ${monthGrab.toLocaleString()} บาท</span>
+        <span>เป้า ${target.toLocaleString()} บาท (${pct}%)</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+
+    document.getElementById("pendingNotice").style.display = pendingCnt>0?"block":"none";
+
+    // Task table
+    ALL_TASKS_FOR_MODAL = myTasks;
+    document.getElementById("techTaskTable").innerHTML = myTasks.map((t,i)=>{
+      const slow      = t.work_min>t.std_min*1.5?`<span class="flag-slow">🐢ช้า</span>`:"";
+      const teamBadge = t.is_teammate_entry?`<span class="badge-teammate">Teammate</span>`:"";
+      const photos    = parsePhotoUrls(t.verify);
+      const photoEl   = photos.length>0
+        ? `<span class="photo-link" style="cursor:pointer" onclick="event.stopPropagation();openPhotoFromTask(${i})">📷 ${photos.length>1?photos.length+" รูป":"ดูรูป"}</span>`
+        : `<span style="color:var(--red);font-size:11px">❌</span>`;
+      return `<tr class="clickable" onclick="showTaskDetail(${i},'tech')">
+        <td><strong>${t.task_short}</strong>${slow}${teamBadge}</td>
+        <td style="font-size:12px">${t.timein}→${t.timefinish}</td>
+        <td style="font-size:12px">${t.work_min} นาที<br><small style="color:var(--gray)">มาตรฐาน ${t.std_min} นาที</small></td>
+        <td>${getJvDisplay(t)}</td>
+        <td><strong>${t.jv_decision==="PENDING"?"⏳":t.jv_amount.toLocaleString()}</strong></td>
+        <td>${photoEl}</td>
+        <td style="font-size:11px;color:var(--yellow)">${t.backlog||"—"}</td>
+      </tr>`;
+    }).join("");
+
+    const withSummary = myTasks.filter(t=>t.ai_summary);
+    if (withSummary.length>0) {
+      document.getElementById("aiSummaryText").textContent = withSummary[withSummary.length-1].ai_summary;
+      document.getElementById("aiSummaryBox").style.display = "block";
+    } else {
+      document.getElementById("aiSummaryBox").style.display = "none";
+    }
+  }
+
+  renderTechChart(empName, empId);
+  renderDailyHistory(empName, empId);
+  document.getElementById("personalSection").style.display = "block";
+  document.getElementById("techEmpty").style.display       = "none";
+}
+
+// ── ประวัติรายวัน ──
+function renderDailyHistory(name, id) {
+  const allMyTasks = ACTIVE_TASKS.filter(t=>t.name===name||t.id===id);
+  const dates = [...new Set(allMyTasks.map(t=>t.date))].sort().reverse(); // ล่าสุดก่อน
+
+  if (dates.length === 0) {
+    document.getElementById("dailyHistory").innerHTML =
+      `<div style="color:var(--gray);font-size:13px;padding:12px 0">ยังไม่มีประวัติงาน</div>`;
+    return;
+  }
+
+  document.getElementById("dailyHistory").innerHTML = dates.map(d => {
+    const dayTasks = allMyTasks.filter(t=>t.date===d);
+    const grab     = dayTasks.reduce((s,t)=>s+(t.jv_amount||0),0);
+    const pending  = dayTasks.filter(t=>t.jv_decision==="PENDING").length;
+    const isSelected = d === TECH_DATE;
+    return `<div class="history-row${isSelected?" selected":""}" onclick="techDateSet('${d}')">
+      <div class="history-date">${formatDateTH(d)}</div>
+      <div class="history-tasks">${dayTasks.length} งาน</div>
+      <div class="history-grab">${grab>0?grab.toLocaleString()+" บาท":"—"}</div>
+      ${pending>0?`<div class="history-pending">⏳ ${pending} PENDING</div>`:""}
+    </div>`;
+  }).join("");
+}
+
+function renderTechChart(name, id) {
+  const dates=[ ...new Set(ACTIVE_TASKS.map(t=>t.date))].sort().slice(-7);
+  const days =dates.map(d=>{const p=d.split("-");return `${parseInt(p[2])} ${MONTHS_TH[parseInt(p[1])]}`;});
+  const data =dates.map(d=>ACTIVE_TASKS.filter(t=>t.date===d&&(t.name===name||t.id===id)).reduce((s,t)=>s+(t.jv_amount||0),0));
+  const ctx=document.getElementById("techChart").getContext("2d");
+  if(window.techChartObj) window.techChartObj.destroy();
+  window.techChartObj=new Chart(ctx,{
+    type:"bar",
+    data:{labels:days,datasets:[{label:"Grab (บาท)",data,backgroundColor:"#F97316BB",borderColor:"#F97316",borderWidth:1,borderRadius:4}]},
+    options:{animation:false,responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{font:{size:11}}},x:{ticks:{font:{size:11}}}}}
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// 🛡️ SUPERVISOR VIEW
+// ══════════════════════════════════════════════════════
+// เก็บ filtered tasks ล่าสุด สำหรับ modal
+let ALL_TASKS_FOR_MODAL = [];
+let SUPERVISOR_TASKS_FOR_MODAL = [];
+
+function renderSupervisorView() {
+  const tasks   = getFilteredTasks();
+  // supervisor view แสดงเฉพาะงานต้นฉบับ (ไม่ซ้ำ teammate)
+  const originals = tasks.filter(t=>!t.is_teammate_entry);
+  SUPERVISOR_TASKS_FOR_MODAL = originals;
+
+  const backlogs  = originals.filter(t=>t.backlog);
+  const pending   = originals.filter(t=>t.jv_decision==="PENDING");
+  const done      = originals.filter(t=>t.jv_decision!=="PENDING");
+  const totalGrab = done.reduce((s,t)=>s+(t.jv_amount||0),0);
+
+  const f=DATE_FILTER.from, to=DATE_FILTER.to;
+  document.getElementById("mPeriodLabel").textContent =
+    f&&to&&f===to?`งานวันที่ ${formatDateTH(f)}`:f&&to?`งาน ${formatDateTH(f)} – ${formatDateTH(to)}`:"งานทั้งหมด";
+  document.getElementById("mTotalTasks").textContent  = originals.length;
+  document.getElementById("mTotalGrab").textContent   = totalGrab.toLocaleString();
+  document.getElementById("mBacklogCount").textContent= backlogs.length;
+  document.getElementById("mPendingCount").textContent= pending.length;
+
+  // Ranking รวม teammate ด้วย (นับจาก ACTIVE_TASKS ทั้งหมดที่ filter วันที่)
+  const allFiltered = tasks; // รวม teammate
+  const techsInPeriod = [...new Set(allFiltered.map(t=>t.name))];
+  const rankData = techsInPeriod.map(name=>{
+    const ts  = allFiltered.filter(t=>t.name===name&&t.jv_decision!=="PENDING");
+    const full= ts.filter(t=>t.jv_decision==="FULL").length;
+    return {name, count:ts.length, full, grab:ts.reduce((s,t)=>s+(t.jv_amount||0),0)};
+  }).filter(r=>r.count>0).sort((a,b)=>b.grab-a.grab);
+
+  document.getElementById("rankingTable").innerHTML = rankData.length
+    ? rankData.map((r,i)=>`<tr>
+        <td class="rank-num ${i<3?["rank-1","rank-2","rank-3"][i]:""}">${i<3?["🥇","🥈","🥉"][i]:i+1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.count} งาน</td>
+        <td>${r.count>0?Math.round(r.full/r.count*100):0}%</td>
+        <td><strong>${r.grab.toLocaleString()}</strong></td>
+      </tr>`).join("")
+    : `<tr><td colspan="5" style="text-align:center;color:var(--gray);padding:20px">ไม่มีข้อมูล</td></tr>`;
+
+  // All tasks table (งานต้นฉบับ)
+  document.getElementById("allTaskTable").innerHTML = originals.length
+    ? originals.map((t,i)=>{
+        const slow   = t.work_min>t.std_min*1.5?`<span class="flag-slow">🐢ช้า</span>`:"";
+        const photo  = !t.photo_ok?`<span class="flag-urgent">📸รูปขาด</span>`:"";
+        const urgent = t.is_urgent?`<span class="flag-urgent">🚨BL</span>`:"";
+        const pend   = t.jv_decision==="PENDING"?`<span class="flag-slow">⏳AI</span>`:"";
+        const summEl = t.ai_summary
+          ? `<div class="ai-summary-cell">${t.ai_summary.substring(0,80)}${t.ai_summary.length>80?"…":""}</div>`
+          : `<span style="color:var(--gray);font-size:11px">รอ AI</span>`;
+        return `<tr class="clickable" onclick="showTaskDetail(${i},'supervisor')">
+          <td style="font-size:12px;white-space:nowrap">${t.date}<br><small style="color:var(--gray)">${t.timein}–${t.timefinish}</small></td>
+          <td><strong>${t.name}</strong></td>
+          <td style="font-size:12px">${t.task_short}</td>
+          <td style="font-size:12px">${t.work_min} นาที<br><small style="color:var(--gray)">${t.std_min} มาตรฐาน</small></td>
+          <td>${getJvDisplay(t)}</td>
+          <td><strong>${t.jv_decision==="PENDING"?"⏳":t.jv_amount.toLocaleString()}</strong></td>
+          <td>${summEl}</td>
+          <td>${slow}${photo}${pend}${urgent||(!slow&&!photo&&!pend?"✅":"")}</td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:24px">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>`;
+
+  // Anomalies
+  const anomalies = originals.filter(t=>t.work_min>t.std_min*1.5||!t.photo_ok||t.is_urgent);
+  document.getElementById("anomalyList").innerHTML = anomalies.length===0
+    ? `<div style="color:var(--green);padding:10px">✅ ไม่พบงานผิดปกติ</div>`
+    : anomalies.map(t=>{
+        const reasons=[];
+        if(t.work_min>t.std_min*1.5) reasons.push(`ใช้เวลา ${t.work_min} นาที (มาตรฐาน ${t.std_min} นาที)`);
+        if(!t.photo_ok) reasons.push("ไม่มีรูปยืนยัน");
+        if(t.is_urgent) reasons.push(`Backlog: ${t.backlog}`);
+        return `<div class="anomaly-row">
+          <div class="anomaly-icon">⚠️</div>
+          <div class="anomaly-text">
+            <div class="anomaly-name">${t.date} — ${t.name} — ${t.task_short}</div>
+            ${reasons.map(r=>`<div class="anomaly-reason">• ${r}</div>`).join("")}
+          </div>
+        </div>`;
+      }).join("");
+
+  document.getElementById("backlogList").innerHTML = backlogs.length===0
+    ? `<div style="color:var(--green);padding:10px">✅ ไม่มี Backlog</div>`
+    : backlogs.map(t=>`
+        <div class="backlog-item ${t.is_urgent?"urgent":""}">
+          ${t.is_urgent?"🚨":"⚠️"} ${t.backlog}
+          <div class="backlog-meta">${t.date} — ${t.name} — ${t.task_short} | เสร็จ ${t.timefinish}</div>
+        </div>`).join("");
+}
+
+function renderManagerChart() {
+  const dates = [...new Set(ACTIVE_TASKS.map(t=>t.date))].sort().slice(-7);
+  const days  = dates.map(d=>{const p=d.split("-");return `${parseInt(p[2])} ${MONTHS_TH[parseInt(p[1])]}`;});
+  const colors= ["#F97316","#3B82F6","#16A34A","#A855F7","#EC4899","#14B8A6","#F59E0B","#EF4444"];
+  const ctx   = document.getElementById("managerChart").getContext("2d");
+  if(window.managerChartObj) window.managerChartObj.destroy();
+  window.managerChartObj = new Chart(ctx,{
+    type:"line",
+    data:{
+      labels:days,
+      datasets: ACTIVE_TECHS.slice(0,8).map((name,i)=>({
+        label: name.split(" ")[0],
+        data: dates.map(d=>ACTIVE_TASKS.filter(t=>t.date===d&&t.name===name&&t.jv_decision!=="PENDING").reduce((s,t)=>s+(t.jv_amount||0),0)),
+        borderColor:colors[i%8], backgroundColor:colors[i%8]+"22",
+        tension:.3, fill:false, pointRadius:4
+      }))
+    },
+    options:{animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},
+      scales:{y:{beginAtZero:true,ticks:{font:{size:11}}},x:{ticks:{font:{size:11}}}}}
+  });
+}
+
+async function refreshData() {
+  const btn=document.querySelector(".refresh-btn");
+  btn.textContent="⏳ กำลังโหลด...";
+  showBanner("กำลังโหลดข้อมูลจาก Google Sheets...");
+  const sheetData = await loadFromSheets();
+  if (sheetData && sheetData.length>0) {
+    const expanded = expandTeammates(sheetData);
+    ACTIVE_TASKS = expanded;
+    ACTIVE_TECHS = [...new Set(expanded.map(t=>t.name))].filter(Boolean);
+    ACTIVE_TODAY = expanded.map(t=>t.date).sort().at(-1) || ACTIVE_TODAY;
+    showBanner(`✅ อัปเดตแล้ว — ${sheetData.length} รายการ | Teammate expanded: ${expanded.length} | ล่าสุด: ${formatDateTH(ACTIVE_TODAY)}`,"green");
+    const sel=document.getElementById("techSelect");
+    sel.innerHTML='<option value="">— เลือกช่าง —</option>';
+    ACTIVE_TECHS.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;sel.appendChild(o);});
+  } else {
+    showBanner("⚠️ โหลดไม่ได้ — ยังแสดงข้อมูลเดิม","yellow");
+  }
+  renderSupervisorView(); renderManagerChart();
+  // ถ้า login เป็นช่างอยู่ ให้ refresh ข้อมูลช่างด้วย
+  if (LOGIN_STATE.loggedIn && !LOGIN_STATE.isSupervisor) {
+    loadTechView(LOGIN_STATE.employeeName, LOGIN_STATE.employeeId);
+  }
+  btn.textContent="🔄 รีเฟรช";
+}
+
+// ══════════════════════════════════════════════════════
+// 📋 TASK DETAIL MODAL
+// ══════════════════════════════════════════════════════
+function showTaskDetail(idx, source) {
+  const list = source==="tech" ? ALL_TASKS_FOR_MODAL : SUPERVISOR_TASKS_FOR_MODAL;
+  const t = list[idx];
+  if (!t) return;
+
+  document.getElementById("modalTitle").textContent = t.task_short || t.task;
+  document.getElementById("modalSubtitle").innerHTML =
+    `${getJvDisplay(t)} &nbsp;${t.date} &nbsp;|&nbsp; ${t.name} (${t.id})` +
+    (t.is_teammate_entry ? ' &nbsp;<span class="badge-teammate">Teammate</span>' : '');
+
+  // แยกรูปจาก verify
+  const photos    = parsePhotoUrls(t.verify);
+  const toolUrls  = parsePhotoUrls(t.verifytool);
+
+  // parse detail — รองรับ 3 รูปแบบ:
+  //   1) {"key":"value"} — JSON มาตรฐาน
+  //   2) {key:value,key:value} — non-standard (จาก JAWIS form)
+  //   3) plain text อื่น ๆ
+  let detailObj  = null;
+  let detailText = "";
+  const rawDetail = (t.detail || "").trim();
+  if (rawDetail && rawDetail !== "N/A" && rawDetail !== "-" && rawDetail !== "") {
+    // ลอง standard JSON ก่อน
+    try { detailObj = JSON.parse(rawDetail); } catch(e) { detailObj = null; }
+
+    // ถ้า JSON ล้มเหลว ลอง {key:value,...} format
+    if (!detailObj) {
+      const m = rawDetail.match(/^\{(.+)\}$/s);
+      if (m) {
+        const obj = {};
+        // split on comma ที่ตามด้วย ascii-word : (key ต้องเป็น ASCII)
+        const pairs = m[1].split(/,(?=[A-Za-z_]\w*:)/);
+        pairs.forEach(pair => {
+          const ci = pair.indexOf(":");
+          if (ci > 0) {
+            obj[pair.substring(0,ci).trim()] = pair.substring(ci+1).trim();
+          }
+        });
+        if (Object.keys(obj).length > 0) detailObj = obj;
+        else detailText = rawDetail; // fallback plain text
+      } else {
+        detailText = rawDetail; // ไม่ใช่ object format — แสดง plain text
+      }
+    }
+  }
+
+  // สร้าง teammate names
+  let teammateDisplay = "—";
+  if (t.teammate) {
+    const tids = t.teammate.split(",").map(s=>s.trim()).filter(Boolean);
+    teammateDisplay = tids.map(tid=>{
+      const emp = EMPLOYEES.find(e=>e.id===tid);
+      return emp ? `${emp.name} (${tid})` : tid;
+    }).join(", ");
+  }
+
+  let html = `
+    <div class="modal-section">
+      <div class="modal-section-title">📌 ข้อมูลงาน</div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-item-label">ชื่องาน (Full)</div><div class="detail-item-value" style="font-size:11px">${t.task}</div></div>
+        <div class="detail-item"><div class="detail-item-label">วันที่</div><div class="detail-item-value">${formatDateTH(t.date)}</div></div>
+        <div class="detail-item"><div class="detail-item-label">ช่าง</div><div class="detail-item-value">${t.name} (${t.id})</div></div>
+        <div class="detail-item"><div class="detail-item-label">Teammate</div><div class="detail-item-value" style="font-size:12px">${teammateDisplay}</div></div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">⏱️ เวลา & JV</div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-item-label">เข้า CB (TIMEIN)</div><div class="detail-item-value">${t.timein || "—"}</div></div>
+        <div class="detail-item"><div class="detail-item-label">ถึงหน้างาน (ONSITE)</div><div class="detail-item-value">${t.timeonsite || "—"}</div></div>
+        <div class="detail-item"><div class="detail-item-label">เสร็จงาน (FINISH)</div><div class="detail-item-value">${t.timefinish || "—"}</div></div>
+        <div class="detail-item"><div class="detail-item-label">เวลาทำงาน</div><div class="detail-item-value">${t.work_min} นาที <span style="font-weight:400;color:var(--gray);font-size:11px">(มาตรฐาน ${t.std_min} นาที)</span></div></div>
+        <div class="detail-item"><div class="detail-item-label">JV Decision</div><div class="detail-item-value">${getJvDisplay(t)}</div></div>
+        <div class="detail-item"><div class="detail-item-label">Grab (บาท)</div><div class="detail-item-value" style="color:var(--green);font-size:18px">${t.jv_decision==="PENDING"?"⏳ รอ AI":t.jv_amount.toLocaleString()+" บาท"}</div></div>
+      </div>
+    </div>`;
+
+  // DETAIL — JSON หรือ plain text
+  if (detailObj && Object.keys(detailObj).length > 0) {
+    // กรณี JSON → แสดงเป็น key-value grid
+    html += `<div class="modal-section">
+      <div class="modal-section-title">🔧 รายละเอียดงาน</div>
+      <div class="detail-grid">`;
+    Object.entries(detailObj).forEach(([k,v])=>{
+      html += `<div class="detail-item">
+        <div class="detail-item-label">${k}</div>
+        <div class="detail-item-value">${v}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  } else if (detailText) {
+    // กรณี plain text → แสดงเป็น paragraph
+    html += `<div class="modal-section">
+      <div class="modal-section-title">🔧 รายละเอียดงาน</div>
+      <div style="background:var(--gray-light);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;white-space:pre-wrap">${detailText}</div>
+    </div>`;
+  }
+
+  // Backlog
+  if (t.backlog) {
+    html += `<div class="modal-section">
+      <div class="modal-section-title">⚠️ Backlog / งานค้าง</div>
+      <div class="backlog-item ${t.is_urgent?"urgent":""}">🚨 ${t.backlog}</div>
+    </div>`;
+  }
+
+  // AI Summary
+  if (t.ai_summary) {
+    html += `<div class="modal-section">
+      <div class="modal-section-title">🤖 AI Summary</div>
+      <div class="ai-box" style="margin-bottom:0"><div class="ai-text">${t.ai_summary}</div></div>
+    </div>`;
+  }
+
+  // รูปยืนยัน (VERIFY)
+  if (photos.length > 0) {
+    html += `<div class="modal-section">
+      <div class="modal-section-title">📷 รูปยืนยันงาน (${photos.length} รูป)</div>
+      <div class="photo-gallery">`;
+    photos.forEach((url,i)=>{
+      html += `<div class="photo-thumb" id="pt_${i}" onclick="openLightbox(${JSON.stringify(photos)},${i})">
+        <img src="${url}" alt="รูปที่ ${i+1}" onerror="this.closest('.photo-thumb').classList.add('err')">
+        <div class="photo-err">🖼️<span>โหลดรูปไม่ได้</span></div>
+        ${photos.length>1?`<div class="photo-counter">${i+1}/${photos.length}</div>`:""}
+      </div>`;
+    });
+    html += `</div>`;
+    // link เปิดตรง
+    if (photos.length===1) {
+      html += `<a href="${photos[0]}" target="_blank" class="photo-open-link">🔗 เปิดรูปในแท็บใหม่</a>`;
+    }
+    html += `</div>`;
+  } else {
+    html += `<div class="modal-section">
+      <div class="modal-section-title">📷 รูปยืนยันงาน</div>
+      <div style="color:var(--red);font-size:13px;padding:8px 0">❌ ไม่มีรูปยืนยัน — JV อาจถูก Hold</div>
+    </div>`;
+  }
+
+  // รูปเครื่องมือ (VERIFYTOOL)
+  if (toolUrls.length > 0) {
+    html += `<div class="modal-section">
+      <div class="modal-section-title">🔧 รูปเครื่องมือ (${toolUrls.length} รูป)</div>
+      <div class="photo-gallery">`;
+    toolUrls.forEach((url,i)=>{
+      html += `<div class="photo-thumb" onclick="openLightbox(${JSON.stringify(toolUrls)},${i})">
+        <img src="${url}" alt="เครื่องมือ ${i+1}" onerror="this.closest('.photo-thumb').classList.add('err')">
+        <div class="photo-err">🖼️<span>โหลดรูปไม่ได้</span></div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  document.getElementById("modalBody").innerHTML = html;
+  document.getElementById("taskModal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("taskModal").classList.remove("open");
+}
+
+// เปิดรูปจาก task ใน tech table (ไม่เปิด modal ก่อน)
+function openPhotoFromTask(idx) {
+  const t = ALL_TASKS_FOR_MODAL[idx];
+  if (!t) return;
+  const photos = parsePhotoUrls(t.verify);
+  if (photos.length > 0) openLightbox(photos, 0);
+}
+
+// ══════════════════════════════════════════════════════
+// 🖼️ PHOTO LIGHTBOX
+// ══════════════════════════════════════════════════════
+let LB_PHOTOS = [];
+let LB_IDX    = 0;
+
+function openLightbox(photos, startIdx) {
+  LB_PHOTOS = photos;
+  LB_IDX    = startIdx;
+  renderLightbox();
+  document.getElementById("photoLightbox").classList.add("open");
+}
+
+function renderLightbox() {
+  document.getElementById("lightboxImg").src = LB_PHOTOS[LB_IDX];
+  document.getElementById("lbCounter").textContent = `${LB_IDX+1} / ${LB_PHOTOS.length}`;
+  document.getElementById("lbPrev").style.display = LB_PHOTOS.length>1?"block":"none";
+  document.getElementById("lbNext").style.display = LB_PHOTOS.length>1?"block":"none";
+}
+
+function lightboxNav(dir) {
+  LB_IDX = (LB_IDX + dir + LB_PHOTOS.length) % LB_PHOTOS.length;
+  renderLightbox();
+}
+
+function closeLightbox() {
+  document.getElementById("photoLightbox").classList.remove("open");
+  LB_PHOTOS = []; LB_IDX = 0;
+}
+
+// ปิด lightbox ด้วย ESC / ปิด modal ด้วย ESC
+document.addEventListener("keydown", e=>{
+  if (e.key==="Escape") {
+    if (document.getElementById("photoLightbox").classList.contains("open")) closeLightbox();
+    else closeModal();
+  }
+});
+</script>
+</body>
+</html>
