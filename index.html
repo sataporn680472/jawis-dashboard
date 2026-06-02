@@ -678,18 +678,39 @@ async function loadFromSheets() {
 // [4]TIMEIN [5]TIMEONSITE [6]TIMEFINISH [7]TEAMMATE
 // [8]VERIFY [9]VERIFYTOOL [10]BACKLOG [11]DETAIL
 // [12]COUNT [13]JV_DECISION [14]JV_AMOUNT [15]AI_SUMMARY
+//
+// ⚠️ ใช้ character-by-character parser เพื่อรองรับ:
+//    - comma ใน quoted field (เช่น URL มี , ใน query string)
+//    - newline ใน quoted field (cell ที่มีหลาย line)
 // ══════════════════════════════════════════════════════
-function parseCSV(csv) {
-  const lines = csv.trim().split("\n");
-  return lines.slice(1).map(line => {
-    const cols = []; let cur="", inQ=false;
-    for(let i=0;i<line.length;i++){
-      const c=line[i];
-      if(c==='"'){inQ=!inQ}
-      else if(c===','&&!inQ){cols.push(cur);cur=""}
-      else{cur+=c}
+function splitCSVToRecords(csv) {
+  const records = [];
+  let row = [], cur = "", inQ = false;
+  for (let i = 0; i < csv.length; i++) {
+    const c = csv[i];
+    if (c === '"') {
+      // double-quote escape "" → เก็บ " เดียว
+      if (inQ && csv[i+1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if (c === ',' && !inQ) {
+      row.push(cur); cur = "";
+    } else if ((c === '\n' || c === '\r') && !inQ) {
+      if (c === '\r' && csv[i+1] === '\n') i++; // CRLF → skip \n
+      row.push(cur); cur = "";
+      if (row.some(v => v !== "")) records.push(row);
+      row = [];
+    } else {
+      cur += c;
     }
-    cols.push(cur);
+  }
+  // แถวสุดท้าย
+  if (cur !== "" || row.length > 0) { row.push(cur); if (row.some(v=>v!=="")) records.push(row); }
+  return records;
+}
+
+function parseCSV(csv) {
+  const records = splitCSVToRecords(csv.trim());
+  return records.slice(1).map(cols => {
     const clean = cols.map(c=>c.replace(/^'/, "").trim());
 
     const timestamp  = clean[0]  || "";
