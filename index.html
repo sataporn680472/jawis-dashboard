@@ -577,12 +577,21 @@ function getTaskShort(task) {
 }
 const TASK_STD = {
   "CM_01":50,"CM_02":60,"CM_03":50,"CM_04":30,"CM_05":210,"CM_06":50,"CM_08":120,
-  "PM_A02":15,"PM_M01":30,"PM_M06":20,"PM_D01":10,"PM_D02":15,
-  "PM_D04":45,"PM_D06":60,"PM_D07":60,"PM_W08":60,
+  "PM_D01":10,"PM_D02":15,"PM_D04":45,"PM_D06":60,"PM_D07":60,
   "DAILY":60,"D03":30,"AEC_D01":30
 };
-function getStdMin(task) {
+// Task ที่คิดเวลา "ต่อหน่วย" — คูณด้วย COUNT จาก Google Sheets
+const TASK_STD_PERUNIT = {
+  "PM_A02":15,   // 15 นาที/INV
+  "PM_M01":30,   // 30 นาที/PWH
+  "PM_M06":20,   // 20 นาที/เสา
+  "PM_W08":60,   // 60 นาที/หม้อแปลง
+};
+function getStdMin(task, count) {
   const t = task.toUpperCase();
+  for (const [k, v] of Object.entries(TASK_STD_PERUNIT)) {
+    if (t.includes(k)) return v * (count > 0 ? count : 1);
+  }
   for (const [k, v] of Object.entries(TASK_STD)) {
     if (t.includes(k)) return v;
   }
@@ -764,7 +773,7 @@ function parseCSV(csv) {
     const jv_amount  = parseFloat(clean[14]) || 0;
     const ai_summary = clean[15] || "";
     const work_min   = calcWorkMin(timein, timefinish);
-    const std_min    = getStdMin(task);
+    const std_min    = getStdMin(task, count);
 
     return {
       timestamp, date,
