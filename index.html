@@ -462,6 +462,18 @@
 
     <div class="card" style="margin-bottom:20px">
       <div class="section-title">📋 งานทั้งหมด <small style="font-size:11px;color:var(--gray);font-weight:400">(กด row เพื่อดูรายละเอียด)</small></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+        <input id="taskFilterName" type="text" placeholder="🔍 ค้นหาชื่อช่าง / งาน…"
+          oninput="renderAllTaskTable()"
+          style="padding:5px 10px;border:1px solid var(--border);border-radius:20px;font-size:13px;background:var(--bg);color:var(--text);outline:none;min-width:180px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap" id="jvFilterPills">
+          <span class="af-pill active" onclick="setTaskJvFilter('all',this)">ทั้งหมด</span>
+          <span class="af-pill" onclick="setTaskJvFilter('FULL',this)">FULL</span>
+          <span class="af-pill" onclick="setTaskJvFilter('MIN',this)">MIN</span>
+          <span class="af-pill" onclick="setTaskJvFilter('BREAKDOWN',this)">BREAKDOWN</span>
+          <span class="af-pill" onclick="setTaskJvFilter('PENDING',this)">⏳ PENDING</span>
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -824,6 +836,7 @@ let ACTIVE_TODAY = MOCK_TODAY;
 // ══════════════════════════════════════════════════════
 let DATE_FILTER = {from:"",to:""};
 let ANOMALY_ALL = [], ANOMALY_ORIGINALS = [], ANOMALY_FILTER = "all";
+let ALL_TASK_ORIGINALS = [], TASK_JV_FILTER = "all";
 
 function getFilteredTasks() {
   let tasks = ACTIVE_TASKS;
@@ -1157,28 +1170,13 @@ function renderSupervisorView() {
       </tr>`).join("")
     : `<tr><td colspan="5" style="text-align:center;color:var(--gray);padding:20px">ไม่มีข้อมูล</td></tr>`;
 
-  // All tasks table (งานต้นฉบับ)
-  document.getElementById("allTaskTable").innerHTML = originals.length
-    ? originals.map((t,i)=>{
-        const slow   = t.work_min>t.std_min*1.5?`<span class="flag-slow">🐢ช้า</span>`:"";
-        const photo  = !t.photo_ok?`<span class="flag-urgent">📸รูปขาด</span>`:"";
-        const urgent = t.is_urgent?`<span class="flag-urgent">🚨BL</span>`:"";
-        const pend   = t.jv_decision==="PENDING"?`<span class="flag-slow">⏳AI</span>`:"";
-        const summEl = t.ai_summary
-          ? `<div class="ai-summary-cell">${t.ai_summary.substring(0,80)}${t.ai_summary.length>80?"…":""}</div>`
-          : `<span style="color:var(--gray);font-size:11px">รอ AI</span>`;
-        return `<tr class="clickable" onclick="showTaskDetail(${i},'supervisor')">
-          <td style="font-size:12px;white-space:nowrap">${t.date}<br><small style="color:var(--gray)">${t.timein}–${t.timefinish}</small></td>
-          <td><strong>${t.name}</strong></td>
-          <td style="font-size:12px">${t.task_short}</td>
-          <td style="font-size:12px">${t.work_min} นาที<br><small style="color:var(--gray)">${t.std_min} มาตรฐาน</small></td>
-          <td>${getJvDisplay(t)}</td>
-          <td><strong>${t.jv_decision==="PENDING"?"⏳":t.jv_amount.toLocaleString()}</strong></td>
-          <td>${summEl}</td>
-          <td>${slow}${photo}${pend}${urgent||(!slow&&!photo&&!pend?"✅":"")}</td>
-        </tr>`;
-      }).join("")
-    : `<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:24px">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>`;
+  // All tasks table
+  ALL_TASK_ORIGINALS = originals;
+  TASK_JV_FILTER = "all";
+  const nameInput = document.getElementById("taskFilterName");
+  if (nameInput) nameInput.value = "";
+  document.querySelectorAll("#jvFilterPills .af-pill").forEach((p,i)=>p.classList.toggle("active",i===0));
+  renderAllTaskTable();
 
   // Anomalies
   const anomalies = originals.filter(t=>t.work_min>t.std_min*1.5||!t.photo_ok||t.is_urgent);
@@ -1228,6 +1226,45 @@ function renderAnomalyList() {
           </div>
         </div>`;
       }).join("");
+}
+
+function setTaskJvFilter(f, el) {
+  TASK_JV_FILTER = f;
+  document.querySelectorAll("#jvFilterPills .af-pill").forEach(p=>p.classList.remove("active"));
+  if (el) el.classList.add("active");
+  renderAllTaskTable();
+}
+
+function renderAllTaskTable() {
+  const q = (document.getElementById("taskFilterName")?.value || "").trim().toLowerCase();
+  const jv = TASK_JV_FILTER;
+  const filtered = ALL_TASK_ORIGINALS.filter(t => {
+    if (jv !== "all" && t.jv_decision !== jv) return false;
+    if (q && !t.name.toLowerCase().includes(q) && !t.task_short.toLowerCase().includes(q) && !t.task.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById("allTaskTable").innerHTML = filtered.length
+    ? filtered.map(t => {
+        const i = ALL_TASK_ORIGINALS.indexOf(t);
+        const slow   = t.work_min>t.std_min*1.5?`<span class="flag-slow">🐢ช้า</span>`:"";
+        const photo  = !t.photo_ok?`<span class="flag-urgent">📸รูปขาด</span>`:"";
+        const urgent = t.is_urgent?`<span class="flag-urgent">🚨BL</span>`:"";
+        const pend   = t.jv_decision==="PENDING"?`<span class="flag-slow">⏳AI</span>`:"";
+        const summEl = t.ai_summary
+          ? `<div class="ai-summary-cell">${t.ai_summary.substring(0,80)}${t.ai_summary.length>80?"…":""}</div>`
+          : `<span style="color:var(--gray);font-size:11px">รอ AI</span>`;
+        return `<tr class="clickable" onclick="showTaskDetail(${i},'supervisor')">
+          <td style="font-size:12px;white-space:nowrap">${t.date}<br><small style="color:var(--gray)">${t.timein}–${t.timefinish}</small></td>
+          <td><strong>${t.name}</strong></td>
+          <td style="font-size:12px">${t.task_short}</td>
+          <td style="font-size:12px">${t.work_min} นาที<br><small style="color:var(--gray)">${t.std_min} มาตรฐาน</small></td>
+          <td>${getJvDisplay(t)}</td>
+          <td><strong>${t.jv_decision==="PENDING"?"⏳":t.jv_amount.toLocaleString()}</strong></td>
+          <td>${summEl}</td>
+          <td>${slow}${photo}${pend}${urgent||(!slow&&!photo&&!pend?"✅":"")}</td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="8" style="text-align:center;color:var(--gray);padding:24px">ไม่พบงานที่ตรงกับ Filter</td></tr>`;
 }
 
 function renderManagerChart() {
