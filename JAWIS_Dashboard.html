@@ -544,6 +544,11 @@ function formatDateTH(iso) {
   const [y, m, d] = iso.split("-");
   return `${parseInt(d)} ${MONTHS_TH[parseInt(m)]} ${parseInt(y)+543}`;
 }
+function hasBacklog(b) {
+  if (!b) return false;
+  const s = b.trim();
+  return s !== "" && s !== "-" && s !== "ไม่มี" && s !== "N/A" && s !== "n/a";
+}
 function getTaskShort(task) {
   return task.replace(/^GRAB_NPS_/,"").replace(/^GRAB_/,"").replace(/_/g," ");
 }
@@ -749,7 +754,7 @@ function parseCSV(csv) {
       jv_decision: ["FULL","MIN","BREAKDOWN","PENDING"].includes(jv_dec) ? jv_dec : "PENDING",
       jv_amount, ai_summary,
       photo_ok: verify.startsWith("http"),
-      is_urgent: backlog.length > 0,
+      is_urgent: hasBacklog(backlog),
       is_teammate_entry: false,
       employee_name: name, employee_id: id,
       time_start: timein, time_onsite: timeonsite, time_finish: timefinish,
@@ -1109,7 +1114,7 @@ function renderSupervisorView() {
   const originals = tasks.filter(t=>!t.is_teammate_entry);
   SUPERVISOR_TASKS_FOR_MODAL = originals;
 
-  const backlogs  = originals.filter(t=>t.backlog);
+  const backlogs  = originals.filter(t=>hasBacklog(t.backlog));
   const pending   = originals.filter(t=>t.jv_decision==="PENDING");
   const done      = originals.filter(t=>t.jv_decision!=="PENDING");
   const totalGrab = done.reduce((s,t)=>s+(t.jv_amount||0),0);
@@ -1184,11 +1189,13 @@ function renderSupervisorView() {
 
   document.getElementById("backlogList").innerHTML = backlogs.length===0
     ? `<div style="color:var(--green);padding:10px">✅ ไม่มี Backlog</div>`
-    : backlogs.map(t=>`
-        <div class="backlog-item ${t.is_urgent?"urgent":""}">
-          ${t.is_urgent?"🚨":"⚠️"} ${t.backlog}
+    : backlogs.map(t=>{
+        const idx = originals.indexOf(t);
+        return `<div class="backlog-item ${t.is_urgent?"urgent":""}" style="cursor:pointer" onclick="showTaskDetail(${idx},'supervisor')">
+          ${t.is_urgent?"🚨":"⚠️"} <strong>${t.backlog}</strong>
           <div class="backlog-meta">${t.date} — ${t.name} — ${t.task_short} | เสร็จ ${t.timefinish}</div>
-        </div>`).join("");
+        </div>`;
+      }).join("");
 }
 
 function renderManagerChart() {
