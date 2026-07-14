@@ -494,6 +494,7 @@
         <div class="anomaly-filters" id="anomalyFilters">
           <span class="af-pill active" onclick="setAnomalyFilter('all',this)">ทั้งหมด</span>
           <span class="af-pill" onclick="setAnomalyFilter('slow',this)">🐢 ช้าเกินมาตรฐาน</span>
+          <span class="af-pill" onclick="setAnomalyFilter('fast',this)">⚡ เร็วกว่ามาตรฐาน</span>
           <span class="af-pill" onclick="setAnomalyFilter('photo',this)">📸 ไม่มีรูป</span>
           <span class="af-pill" onclick="setAnomalyFilter('backlog',this)">🚨 มี Backlog</span>
         </div>
@@ -1179,7 +1180,7 @@ function renderSupervisorView() {
   renderAllTaskTable();
 
   // Anomalies
-  const anomalies = originals.filter(t=>t.work_min>t.std_min*1.5||!t.photo_ok||t.is_urgent);
+  const anomalies = originals.filter(t=>t.work_min>t.std_min*1.5||(t.work_min>0&&t.work_min<t.std_min*0.5)||!t.photo_ok||t.is_urgent);
   ANOMALY_ALL      = anomalies;
   ANOMALY_ORIGINALS = originals;
   renderAnomalyList();
@@ -1206,6 +1207,7 @@ function renderAnomalyList() {
   const f = ANOMALY_FILTER;
   const filtered = ANOMALY_ALL.filter(t => {
     if (f === "slow")    return t.work_min > t.std_min * 1.5;
+    if (f === "fast")    return t.work_min > 0 && t.work_min < t.std_min * 0.5;
     if (f === "photo")   return !t.photo_ok;
     if (f === "backlog") return t.is_urgent;
     return true; // "all"
@@ -1214,9 +1216,10 @@ function renderAnomalyList() {
     ? `<div style="color:var(--green);padding:10px">✅ ไม่พบงานผิดปกติ</div>`
     : filtered.map(t => {
         const reasons = [];
-        if (t.work_min > t.std_min * 1.5) reasons.push(`ใช้เวลา ${t.work_min} นาที (มาตรฐาน ${t.std_min} นาที)`);
-        if (!t.photo_ok) reasons.push("ไม่มีรูปยืนยัน");
-        if (t.is_urgent) reasons.push(`Backlog: ${t.backlog}`);
+        if (t.work_min > t.std_min * 1.5) reasons.push(`🐢 ใช้เวลา ${t.work_min} นาที (มาตรฐาน ${t.std_min} นาที)`);
+        if (t.work_min > 0 && t.work_min < t.std_min * 0.5) reasons.push(`⚡ เร็วกว่ามาตรฐาน: ${t.work_min} นาที (มาตรฐาน ${t.std_min} นาที)`);
+        if (!t.photo_ok) reasons.push("📸 ไม่มีรูปยืนยัน");
+        if (t.is_urgent) reasons.push(`🚨 Backlog: ${t.backlog}`);
         const idx = ANOMALY_ORIGINALS.indexOf(t);
         return `<div class="anomaly-row" onclick="showTaskDetail(${idx},'supervisor')">
           <div class="anomaly-icon">⚠️</div>
