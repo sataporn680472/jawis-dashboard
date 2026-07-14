@@ -151,11 +151,15 @@
   .backlog-item{border-left:3px solid var(--yellow);background:var(--yellow-light);padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:8px;font-size:13px}
   .backlog-item.urgent{border-color:var(--red);background:var(--red-light)}
   .backlog-meta{font-size:11px;color:var(--gray);margin-top:3px}
-  .anomaly-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .anomaly-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;transition:background .15s}
+  .anomaly-row:hover{background:var(--yellow-light)}
   .anomaly-icon{font-size:18px}
   .anomaly-text{flex:1}
   .anomaly-name{font-weight:600;font-size:13px}
   .anomaly-reason{font-size:12px;color:var(--gray);margin-top:2px}
+  .anomaly-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .af-pill{padding:3px 10px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);transition:all .15s}
+  .af-pill.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 
   /* ── RANKING ── */
   .rank-num{font-weight:800;color:var(--gray);font-size:16px}
@@ -475,6 +479,12 @@
     <div class="cards-row cards-row-2">
       <div class="card">
         <div class="section-title">🐢 งานผิดปกติ</div>
+        <div class="anomaly-filters" id="anomalyFilters">
+          <span class="af-pill active" onclick="setAnomalyFilter('all',this)">ทั้งหมด</span>
+          <span class="af-pill" onclick="setAnomalyFilter('slow',this)">🐢 ช้าเกินมาตรฐาน</span>
+          <span class="af-pill" onclick="setAnomalyFilter('photo',this)">📸 ไม่มีรูป</span>
+          <span class="af-pill" onclick="setAnomalyFilter('backlog',this)">🚨 มี Backlog</span>
+        </div>
         <div id="anomalyList"></div>
       </div>
       <div class="card">
@@ -813,6 +823,7 @@ let ACTIVE_TODAY = MOCK_TODAY;
 // 📅 DATE FILTER
 // ══════════════════════════════════════════════════════
 let DATE_FILTER = {from:"",to:""};
+let ANOMALY_ALL = [], ANOMALY_ORIGINALS = [], ANOMALY_FILTER = "all";
 
 function getFilteredTasks() {
   let tasks = ACTIVE_TASKS;
@@ -1171,21 +1182,9 @@ function renderSupervisorView() {
 
   // Anomalies
   const anomalies = originals.filter(t=>t.work_min>t.std_min*1.5||!t.photo_ok||t.is_urgent);
-  document.getElementById("anomalyList").innerHTML = anomalies.length===0
-    ? `<div style="color:var(--green);padding:10px">✅ ไม่พบงานผิดปกติ</div>`
-    : anomalies.map(t=>{
-        const reasons=[];
-        if(t.work_min>t.std_min*1.5) reasons.push(`ใช้เวลา ${t.work_min} นาที (มาตรฐาน ${t.std_min} นาที)`);
-        if(!t.photo_ok) reasons.push("ไม่มีรูปยืนยัน");
-        if(t.is_urgent) reasons.push(`Backlog: ${t.backlog}`);
-        return `<div class="anomaly-row">
-          <div class="anomaly-icon">⚠️</div>
-          <div class="anomaly-text">
-            <div class="anomaly-name">${t.date} — ${t.name} — ${t.task_short}</div>
-            ${reasons.map(r=>`<div class="anomaly-reason">• ${r}</div>`).join("")}
-          </div>
-        </div>`;
-      }).join("");
+  ANOMALY_ALL      = anomalies;
+  ANOMALY_ORIGINALS = originals;
+  renderAnomalyList();
 
   document.getElementById("backlogList").innerHTML = backlogs.length===0
     ? `<div style="color:var(--green);padding:10px">✅ ไม่มี Backlog</div>`
@@ -1194,6 +1193,39 @@ function renderSupervisorView() {
         return `<div class="backlog-item ${t.is_urgent?"urgent":""}" style="cursor:pointer" onclick="showTaskDetail(${idx},'supervisor')">
           ${t.is_urgent?"🚨":"⚠️"} <strong>${t.backlog}</strong>
           <div class="backlog-meta">${t.date} — ${t.name} — ${t.task_short} | เสร็จ ${t.timefinish}</div>
+        </div>`;
+      }).join("");
+}
+
+function setAnomalyFilter(f, el) {
+  ANOMALY_FILTER = f;
+  document.querySelectorAll(".af-pill").forEach(p=>p.classList.remove("active"));
+  if (el) el.classList.add("active");
+  renderAnomalyList();
+}
+
+function renderAnomalyList() {
+  const f = ANOMALY_FILTER;
+  const filtered = ANOMALY_ALL.filter(t => {
+    if (f === "slow")    return t.work_min > t.std_min * 1.5;
+    if (f === "photo")   return !t.photo_ok;
+    if (f === "backlog") return t.is_urgent;
+    return true; // "all"
+  });
+  document.getElementById("anomalyList").innerHTML = filtered.length === 0
+    ? `<div style="color:var(--green);padding:10px">✅ ไม่พบงานผิดปกติ</div>`
+    : filtered.map(t => {
+        const reasons = [];
+        if (t.work_min > t.std_min * 1.5) reasons.push(`ใช้เวลา ${t.work_min} นาที (มาตรฐาน ${t.std_min} นาที)`);
+        if (!t.photo_ok) reasons.push("ไม่มีรูปยืนยัน");
+        if (t.is_urgent) reasons.push(`Backlog: ${t.backlog}`);
+        const idx = ANOMALY_ORIGINALS.indexOf(t);
+        return `<div class="anomaly-row" onclick="showTaskDetail(${idx},'supervisor')">
+          <div class="anomaly-icon">⚠️</div>
+          <div class="anomaly-text">
+            <div class="anomaly-name">${t.date} — ${t.name} — ${t.task_short}</div>
+            ${reasons.map(r=>`<div class="anomaly-reason">• ${r}</div>`).join("")}
+          </div>
         </div>`;
       }).join("");
 }
